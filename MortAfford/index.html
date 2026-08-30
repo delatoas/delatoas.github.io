@@ -218,7 +218,7 @@
   <header class="app">
     <div class="titlerow">
       <h1>Mortgage Affordability</h1>
-      <span class="ver">v1.3 · updated Aug 29, 2026</span>
+      <span class="ver">v1.4 · updated Aug 30, 2026</span>
     </div>
     <p>The full picture — what a lender would qualify you for, what it costs every month, and the cash you'd need at closing. Every assumption below is editable.</p>
   </header>
@@ -285,7 +285,16 @@
             </div>
           </div>
         </div>
-        <div class="field"><label for="insRate">Home insurance</label><input id="insRate" inputmode="decimal" value="0.55"><span class="unit">%/yr</span></div>
+        <div class="field">
+          <label for="insRate">Home insurance</label>
+          <div class="inputgroup">
+            <input id="insRate" inputmode="decimal" value="0.55">
+            <div class="seg-mini" role="group" aria-label="Home insurance unit" id="segInsUnit">
+              <button type="button" data-v="pct" aria-pressed="true">%/yr</button>
+              <button type="button" data-v="amt" aria-pressed="false">$/yr</button>
+            </div>
+          </div>
+        </div>
         <div class="field"><label for="pmiRate" id="pmiLabel">PMI (if under 20% down)</label><input id="pmiRate" inputmode="decimal" value="0.6"><span class="unit">%/yr</span></div>
         <div class="field"><label for="hoa">HOA dues</label><input id="hoa" inputmode="decimal" value="0"><span class="unit">$/mo</span></div>
       </fieldset>
@@ -351,13 +360,14 @@
         <h3>Assumptions &amp; sources</h3>
         <ul>
           <li>Default rate 6.7% — Freddie Mac's 30-year average was 6.66% the week of July 30, 2026.</li>
-          <li>Property tax 1.1%/yr and insurance 0.55%/yr of home value are national-average defaults — set your county's real numbers. Property tax can also be entered as a flat $/yr amount if you know your actual bill.</li>
+          <li>Property tax 1.1%/yr and insurance 0.55%/yr of home value are national-average defaults — set your county's real numbers. Both can also be entered as a flat $/yr amount if you know your actual bill.</li>
           <li>Qualifying ratios: conventional 28/36 (lender max 36/45), FHA 31/43 (lender max 40/50), VA back-end 41 (max 50). FHA adds 1.75% upfront MIP (financed) plus 0.55%/yr MIP; VA adds a 2.15% financed funding fee (first use) and no monthly MI.</li>
           <li>Minimum down payment enforced: 3% conventional, 3.5% FHA, 0% VA.</li>
           <li>2026 conforming loan limit: $832,750 baseline ($1,249,125 ceiling in high-cost counties). FHA county limits vary — floor ≈ $541,300.</li>
         </ul>
         <h3 style="margin-top:16px">Version history</h3>
         <ul>
+          <li><b>v1.4</b> — Aug 30, 2026 — home insurance can also be entered as %/yr or a flat $/yr amount.</li>
           <li><b>v1.3</b> — Aug 29, 2026 — property tax can be entered as %/yr or a flat $/yr amount.</li>
           <li><b>v1.2</b> — Aug 8, 2026 — loan-type comparison table, per-type explainer note, version tracking.</li>
           <li><b>v1.1</b> — Aug 8, 2026 — loan term accepts any length, with 30/20/15-year presets.</li>
@@ -396,8 +406,8 @@ const TYPE_NOTES = {
   va:   "For veterans & service members: $0 down, no monthly mortgage insurance — just a financed funding fee (≈2.15% first use).",
 };
 
-const state = { type: "conv", band: "std", taxUnit: "pct" };
-let lastPrice = 0; /* last solved max price — conversion basis when toggling tax units */
+const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct" };
+let lastPrice = 0; /* last solved max price — conversion basis when toggling tax/insurance units */
 
 /* ---------- helpers ---------- */
 const num = id => {
@@ -423,9 +433,12 @@ function solvePrice(maxPay, down, f, k, mi, rateFrac, fixedMonthly) {
   return Math.max(0, p);
 }
 
-/* Property tax as a monthly dollar figure, honoring the selected entry mode. */
+/* Property tax / home insurance as a monthly dollar figure, honoring the selected entry mode. */
 function taxMonthly(inp, price) {
   return inp.taxUnit === "amt" ? inp.taxRate / 12 : price * inp.taxRate / 100 / 12;
+}
+function insMonthly(inp, price) {
+  return inp.insUnit === "amt" ? inp.insRate / 12 : price * inp.insRate / 100 / 12;
 }
 
 /* Full affordability solve for one comfort band. Returns price + payment detail. */
@@ -436,8 +449,11 @@ function affordability(inp, bandKey) {
   const backCap  = Math.max(0, back * inp.gmi - inp.debts);
   const maxPay   = Math.max(0, Math.min(frontCap, backCap));
   const f = paymentFactor(inp.rate, inp.term);
-  const rateFrac = inp.insRate / 100 + (inp.taxUnit === "pct" ? inp.taxRate / 100 : 0);
-  const fixedMonthly = inp.hoa + (inp.taxUnit === "amt" ? inp.taxRate / 12 : 0);
+  const rateFrac = (inp.taxUnit === "pct" ? inp.taxRate / 100 : 0)
+                  + (inp.insUnit === "pct" ? inp.insRate / 100 : 0);
+  const fixedMonthly = inp.hoa
+                      + (inp.taxUnit === "amt" ? inp.taxRate / 12 : 0)
+                      + (inp.insUnit === "amt" ? inp.insRate / 12 : 0);
 
   let mi = prog.mi;
   let price;
@@ -471,7 +487,7 @@ function affordability(inp, bandKey) {
   const parts = {
     pi:  loan * f,
     tax: taxMonthly(inp, price),
-    ins: price * inp.insRate / 100 / 12,
+    ins: insMonthly(inp, price),
     mi:  base * miRate / 12,
     hoa: price > 0 ? inp.hoa : 0,
   };
@@ -489,7 +505,7 @@ function paymentAt(price, inp) {
   const miRate = inp.type === "conv"
     ? (price > 0 && base / price > 0.80 ? inp.pmiRate / 100 : 0)
     : prog.mi;
-  const total = loan * f + taxMonthly(inp, price) + price * inp.insRate / 100 / 12
+  const total = loan * f + taxMonthly(inp, price) + insMonthly(inp, price)
               + base * miRate / 12 + inp.hoa;
   return { total, loan,
            frontDti: inp.gmi > 0 ? total / inp.gmi : Infinity,
@@ -507,7 +523,8 @@ function readInputs() {
     debts: num("autoDebt") + num("studentDebt") + num("cardDebt") + num("otherDebt"),
     down: num("down"), closingPct: num("closingPct"),
     rate: num("rate"), term: termYears(), type: state.type,
-    taxRate: num("taxRate"), taxUnit: state.taxUnit, insRate: num("insRate"),
+    taxRate: num("taxRate"), taxUnit: state.taxUnit,
+    insRate: num("insRate"), insUnit: state.insUnit,
     pmiRate: num("pmiRate"), hoa: num("hoa"),
   };
 }
@@ -692,18 +709,26 @@ wireSeg("segType", v => {
 });
 wireSeg("segTerm", v => { $("termYears").value = v; });
 wireSeg("segBand", v => { state.band = v; });
-wireSeg("segTaxUnit", v => {
-  if (v !== state.taxUnit) {
-    const basis = num("checkPrice") || lastPrice;   // convert using the most relevant known price
-    const cur = num("taxRate");
-    if (basis > 0) {
-      $("taxRate").value = v === "amt"
-        ? Math.round(basis * cur / 100).toLocaleString("en-US")  // %  -> $/yr
-        : (cur / basis * 100).toFixed(2);                        // $/yr -> %
+
+/* %/yr <-> $/yr toggle, shared by property tax and home insurance: converts the field's
+   number using the most relevant known price so switching units doesn't silently
+   reinterpret the figure (e.g. "1.1" becoming "$1.10/yr"). */
+function wireUnitToggle(segId, fieldId, stateKey) {
+  wireSeg(segId, v => {
+    if (v !== state[stateKey]) {
+      const basis = num("checkPrice") || lastPrice;
+      const cur = num(fieldId);
+      if (basis > 0) {
+        $(fieldId).value = v === "amt"
+          ? Math.round(basis * cur / 100).toLocaleString("en-US")  // %  -> $/yr
+          : (cur / basis * 100).toFixed(2);                        // $/yr -> %
+      }
+      state[stateKey] = v;
     }
-    state.taxUnit = v;
-  }
-});
+  });
+}
+wireUnitToggle("segTaxUnit", "taxRate", "taxUnit");
+wireUnitToggle("segInsUnit", "insRate", "insUnit");
 
 const FIELDS = ["income","otherIncome","autoDebt","studentDebt","cardDebt","otherDebt",
                 "down","closingPct","rate","termYears","taxRate","insRate","pmiRate","hoa","checkPrice"];
@@ -719,7 +744,8 @@ function load() {
     if (!data) return;
     Object.assign(state, data.state);
     for (const f of FIELDS) if (data.fields[f] !== undefined) $(f).value = data.fields[f];
-    setSeg("segType", state.type); setSeg("segBand", state.band); setSeg("segTaxUnit", state.taxUnit);
+    setSeg("segType", state.type); setSeg("segBand", state.band);
+    setSeg("segTaxUnit", state.taxUnit); setSeg("segInsUnit", state.insUnit);
     $("pmiRate").disabled = state.type !== "conv";
   } catch (e) { /* ignore corrupt state */ }
 }
