@@ -1,4 +1,5 @@
 # delatoas.github.io
+# Alberto de la Torre
 
 Personal site and small standalone tools, hosted via GitHub Pages.
 
@@ -40,3 +41,18 @@ next visit to that browser/device; nothing is sent anywhere.
 Assumptions (current mortgage rates, conforming loan limits, standard
 qualifying ratios, etc.) are documented at the bottom of the calculator
 itself and are editable — it's a planning tool, not lending advice.
+
+## Disclaimer
+
+Everything on this site, including the Mortgage Affordability Calculator,
+is provided "as is," for informational and educational purposes only, with
+no warranty of any kind, express or implied — including no guarantee of
+accuracy, completeness, or fitness for any particular purpose. It is not
+financial, legal, tax, or lending advice, and it is not a substitute for
+consulting a qualified professional (a lender, financial advisor, or
+attorney) before making any financial decision.
+
+Use of this site and its tools is entirely at your own risk. To the
+fullest extent permitted by law, the author accepts no liability for any
+loss, damage, or decision arising from the use of, or reliance on, this
+site or its output.
