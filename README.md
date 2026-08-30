@@ -1,4 +1,3 @@
-# delatoas.github.io
 # Alberto de la Torre
 
 Personal site and small standalone tools, hosted via GitHub Pages.
