@@ -1,11 +1,11 @@
-# Alberto de la Torre
-
-Personal site and small standalone tools, hosted via GitHub Pages.
+My personal site and small standalone tools, hosted via GitHub Pages.
 
 ## [Mortgage Affordability Calculator](./MortAfford/index.html)
 
-A single-file, client-side calculator that estimates what home price you can
-afford, given your income, debts, cash on hand, and loan assumptions.
+A single-file, client-side calculator that estimates what home price you can afford, given your income, debts, cash on hand, and loan assumptions.
+NO personal information is sent anywhere.  Your entries
+are saved to the browser's `localStorage` so they're remembered on your
+next visit from that browser/device.
 
 **Live:** https://delatoas.github.io/MortAfford/
 
@@ -40,7 +40,12 @@ next visit to that browser/device; nothing is sent anywhere.
 Assumptions (current mortgage rates, conforming loan limits, standard
 qualifying ratios, etc.) are documented at the bottom of the calculator
 itself and are editable — it's a planning tool, not lending advice.
+---
+---
+## [Lunch Wheel](.\LunchWheel\index.html)
+A fun wheel of fortune style wheel to decide what to have for lunch.  
 
+---
 ## Disclaimer
 
 Everything on this site, including the Mortgage Affordability Calculator,
