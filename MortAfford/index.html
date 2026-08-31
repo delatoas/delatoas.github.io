@@ -218,7 +218,7 @@
   <header class="app">
     <div class="titlerow">
       <h1>Mortgage Affordability</h1>
-      <span class="ver">v1.4 · updated Aug 30, 2026</span>
+      <span class="ver">v1.5 · updated Aug 31, 2026</span>
     </div>
     <p>The full picture — what a lender would qualify you for, what it costs every month, and the cash you'd need at closing. Every assumption below is editable.</p>
   </header>
@@ -228,7 +228,16 @@
     <form class="card" id="form" autocomplete="off">
       <fieldset>
         <legend>Income</legend>
-        <div class="field"><label for="income">Annual gross household income</label><input id="income" inputmode="decimal" value="120,000"><span class="unit">$/yr</span></div>
+        <div class="field">
+          <label for="income">Gross household income</label>
+          <div class="inputgroup">
+            <input id="income" inputmode="decimal" value="120,000">
+            <div class="seg-mini" role="group" aria-label="Income period" id="segIncomeUnit">
+              <button type="button" data-v="yr" aria-pressed="true">$/yr</button>
+              <button type="button" data-v="mo" aria-pressed="false">$/mo</button>
+            </div>
+          </div>
+        </div>
         <div class="field"><label for="otherIncome">Other monthly income</label><input id="otherIncome" inputmode="decimal" value="0"><span class="unit">$/mo</span></div>
       </fieldset>
 
@@ -367,6 +376,7 @@
         </ul>
         <h3 style="margin-top:16px">Version history</h3>
         <ul>
+          <li><b>v1.5</b> — Aug 31, 2026 — gross household income can be entered as $/yr or $/mo.</li>
           <li><b>v1.4</b> — Aug 30, 2026 — home insurance can also be entered as %/yr or a flat $/yr amount.</li>
           <li><b>v1.3</b> — Aug 29, 2026 — property tax can be entered as %/yr or a flat $/yr amount.</li>
           <li><b>v1.2</b> — Aug 8, 2026 — loan-type comparison table, per-type explainer note, version tracking.</li>
@@ -415,7 +425,7 @@ const TYPE_NOTES = {
   va:   "For veterans & service members: $0 down, no monthly mortgage insurance — just a financed funding fee (≈2.15% first use).",
 };
 
-const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct" };
+const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct", incomeUnit: "yr" };
 let lastPrice = 0; /* last solved max price — conversion basis when toggling tax/insurance units */
 
 /* ---------- helpers ---------- */
@@ -528,7 +538,7 @@ function termYears() {
 
 function readInputs() {
   return {
-    gmi: num("income") / 12 + num("otherIncome"),
+    gmi: (state.incomeUnit === "yr" ? num("income") / 12 : num("income")) + num("otherIncome"),
     debts: num("autoDebt") + num("studentDebt") + num("cardDebt") + num("otherDebt"),
     down: num("down"), closingPct: num("closingPct"),
     rate: num("rate"), term: termYears(), type: state.type,
@@ -736,6 +746,14 @@ function wireUnitToggle(segId, fieldId, stateKey) {
     }
   });
 }
+/* $/yr <-> $/mo toggle for income — a plain ×12/÷12 conversion, no price basis needed. */
+wireSeg("segIncomeUnit", v => {
+  if (v !== state.incomeUnit) {
+    const cur = num("income");
+    $("income").value = Math.round(v === "mo" ? cur / 12 : cur * 12).toLocaleString("en-US");
+    state.incomeUnit = v;
+  }
+});
 wireUnitToggle("segTaxUnit", "taxRate", "taxUnit");
 wireUnitToggle("segInsUnit", "insRate", "insUnit");
 
@@ -755,6 +773,7 @@ function load() {
     for (const f of FIELDS) if (data.fields[f] !== undefined) $(f).value = data.fields[f];
     setSeg("segType", state.type); setSeg("segBand", state.band);
     setSeg("segTaxUnit", state.taxUnit); setSeg("segInsUnit", state.insUnit);
+    setSeg("segIncomeUnit", state.incomeUnit);
     $("pmiRate").disabled = state.type !== "conv";
   } catch (e) { /* ignore corrupt state */ }
 }
