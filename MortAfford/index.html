@@ -111,6 +111,7 @@
   }
   .field input:disabled { opacity: 0.45; }
   .field .unit { color: var(--ink-muted); font-size: 13px; margin-left: -6px; }
+  .field input[type="date"] { width: 150px; text-align: left; }
 
   .seg { display: flex; background: var(--page); border: 1px solid var(--hairline); border-radius: 8px; padding: 3px; gap: 3px; margin-bottom: 10px; }
   .seg button {
@@ -127,6 +128,8 @@
     color: var(--ink-2); background: transparent; border: 0; border-radius: 5px; cursor: pointer;
   }
   .seg-mini button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+  .note { font-size: 13px; color: var(--ink-2); margin: -4px 0 14px; max-width: 62ch; }
 
   /* ---------- results ---------- */
   .results > * + * { margin-top: 20px; }
@@ -198,6 +201,16 @@
   table.compare.sel-fha  th:nth-child(3), table.compare.sel-fha  td:nth-child(3),
   table.compare.sel-va   th:nth-child(4), table.compare.sel-va   td:nth-child(4) { background: var(--accent-soft); }
 
+  .amort-scroll { max-height: 420px; overflow-y: auto; margin-top: 14px; }
+  table.amort { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13.5px; }
+  table.amort th, table.amort td { padding: 7px 10px; border-bottom: 1px solid var(--hairline); text-align: left; }
+  table.amort thead th {
+    font-size: 12px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+    position: sticky; top: 0; background: var(--surface);
+  }
+  table.amort td.val { text-align: right; font-variant-numeric: tabular-nums; }
+  table.amort tr.total td { border-top: 1px solid var(--hairline); border-bottom: 0; font-weight: 650; }
+
   .check .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .check input { width: 160px; padding: 7px 10px; font: inherit; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--page); border: 1px solid var(--hairline); border-radius: 7px; }
   .check .verdict { margin-top: 12px; }
@@ -218,7 +231,7 @@
   <header class="app">
     <div class="titlerow">
       <h1>Mortgage Affordability</h1>
-      <span class="ver">v1.5 · updated Aug 31, 2026</span>
+      <span class="ver">v1.6 · updated Aug 31, 2026</span>
     </div>
     <p>The full picture — what a lender would qualify you for, what it costs every month, and the cash you'd need at closing. Every assumption below is editable.</p>
   </header>
@@ -307,6 +320,12 @@
         <div class="field"><label for="pmiRate" id="pmiLabel">PMI (if under 20% down)</label><input id="pmiRate" inputmode="decimal" value="0.6"><span class="unit">%/yr</span></div>
         <div class="field"><label for="hoa">HOA dues</label><input id="hoa" inputmode="decimal" value="0"><span class="unit">$/mo</span></div>
       </fieldset>
+
+      <fieldset>
+        <legend>Amortization</legend>
+        <div class="field"><label for="amortStart">Start date</label><input type="date" id="amortStart"></div>
+        <div class="field"><label for="extraPrincipal">Extra principal</label><input id="extraPrincipal" inputmode="decimal" value="0"><span class="unit">$/mo</span></div>
+      </fieldset>
     </form>
 
     <!-- ======================= RESULTS ======================= -->
@@ -329,6 +348,22 @@
         <h2>Monthly payment breakdown</h2>
         <div class="stack" id="stack" aria-hidden="true"></div>
         <table class="legend" id="legend" aria-label="Monthly payment breakdown"></table>
+      </div>
+
+      <div class="card">
+        <h2>Amortization schedule</h2>
+        <p class="note" id="amortSub"></p>
+        <div class="tiles" id="amortTiles"></div>
+        <div class="seg" role="group" aria-label="Schedule granularity" id="segAmortView" style="margin-top:16px">
+          <button type="button" data-v="year" aria-pressed="true">Yearly</button>
+          <button type="button" data-v="month" aria-pressed="false">Monthly</button>
+        </div>
+        <div class="amort-scroll tscroll">
+          <table class="amort" id="amortTable">
+            <thead id="amortThead"></thead>
+            <tbody id="amortBody"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="card">
@@ -358,6 +393,7 @@
 
       <div class="card check">
         <h2>Check a specific listing</h2>
+        <p class="note">Only compares this price against your affordability bands — it doesn't feed into the amortization schedule or anything else on this page.</p>
         <div class="row">
           <label for="checkPrice">Asking price</label>
           <input id="checkPrice" inputmode="decimal" placeholder="e.g. 450,000">
@@ -376,6 +412,7 @@
         </ul>
         <h3 style="margin-top:16px">Version history</h3>
         <ul>
+          <li><b>v1.6</b> — Aug 31, 2026 — amortization schedule for the max-affordable loan, with a configurable start date, extra monthly principal, and yearly/monthly views.</li>
           <li><b>v1.5</b> — Aug 31, 2026 — gross household income can be entered as $/yr or $/mo.</li>
           <li><b>v1.4</b> — Aug 30, 2026 — home insurance can also be entered as %/yr or a flat $/yr amount.</li>
           <li><b>v1.3</b> — Aug 29, 2026 — property tax can be entered as %/yr or a flat $/yr amount.</li>
@@ -425,7 +462,7 @@ const TYPE_NOTES = {
   va:   "For veterans & service members: $0 down, no monthly mortgage insurance — just a financed funding fee (≈2.15% first use).",
 };
 
-const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct", incomeUnit: "yr" };
+const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct", incomeUnit: "yr", amortView: "year" };
 let lastPrice = 0; /* last solved max price — conversion basis when toggling tax/insurance units */
 
 /* ---------- helpers ---------- */
@@ -534,6 +571,42 @@ function paymentAt(price, inp) {
 function termYears() {
   const t = num("termYears");
   return t > 0 ? Math.min(t, 50) : 30;
+}
+
+/* ---------- amortization ---------- */
+function defaultStartDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+}
+function toDateInputValue(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-01";
+}
+function readStartDate() {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec($("amortStart").value);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : defaultStartDate();
+}
+
+/* Month-by-month amortization for a fixed-rate loan, with an optional recurring
+   extra monthly principal payment that shortens the payoff but never lengthens it. */
+function buildSchedule(loan, rate, term, extra, startDate) {
+  const payment = loan * paymentFactor(rate, term);
+  const r = rate / 100 / 12;
+  const rows = [];
+  let balance = loan, cumInterest = 0;
+  const maxMonths = term * 12;
+  for (let m = 0; m < maxMonths && balance > 0.005; m++) {
+    const interest = balance * r;
+    const scheduled = Math.max(0, payment - interest);
+    let principal = scheduled + extra;
+    let extraApplied = extra;
+    if (principal >= balance) { principal = balance; extraApplied = Math.max(0, principal - scheduled); }
+    balance -= principal;
+    cumInterest += interest;
+    const date = new Date(startDate.getFullYear(), startDate.getMonth() + m, 1);
+    rows.push({ date, principal, interest, extra: extraApplied, balance });
+  }
+  return { rows, payment, totalInterest: cumInterest,
+           payoffDate: rows.length ? rows[rows.length - 1].date : null };
 }
 
 function readInputs() {
@@ -653,8 +726,71 @@ function render() {
     b.addEventListener("click", () => setBand(b.dataset.v)));
 
   renderCheck(inp, r);
+  renderAmort(inp, r);
   lastPrice = r.price;
   save();
+}
+
+function renderAmort(inp, r) {
+  const sub = $("amortSub"), tiles = $("amortTiles");
+  const thead = $("amortThead"), body = $("amortBody");
+  if (inp.gmi <= 0 || r.loan <= 0) {
+    sub.textContent = "Enter your income to see the amortization schedule for your max-affordable loan.";
+    tiles.innerHTML = ""; thead.innerHTML = ""; body.innerHTML = "";
+    return;
+  }
+  const extra = num("extraPrincipal");
+  const startDate = readStartDate();
+  const startLabel = startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  sub.textContent = `Amortizing your ${money(r.loan)} loan at ${inp.rate}% for ${inp.term} years, starting ${startLabel}. `
+    + `(This tracks your max-affordable loan above — not the "check a specific listing" price.)`;
+
+  const sched = buildSchedule(r.loan, inp.rate, inp.term, extra, startDate);
+  const t = [
+    { k: "Monthly P&I", v: money(sched.payment), s: extra > 0 ? `+${money(extra)}/mo extra` : "scheduled payment" },
+    { k: "Payoff date", v: sched.payoffDate ? sched.payoffDate.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—" },
+    { k: "Total interest", v: money(sched.totalInterest) },
+  ];
+  if (extra > 0) {
+    const base = buildSchedule(r.loan, inp.rate, inp.term, 0, startDate);
+    const monthsSaved = base.rows.length - sched.rows.length;
+    t.push({ k: "Interest saved", v: money(base.totalInterest - sched.totalInterest) });
+    t.push({ k: "Payoff sooner", v: monthsSaved > 0 ? `${Math.floor(monthsSaved / 12)}y ${monthsSaved % 12}m` : "—" });
+  }
+  tiles.innerHTML = t.map(x =>
+    `<div class="tile"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="s">${x.s || ""}</div></div>`
+  ).join("");
+
+  renderAmortTable(sched, extra > 0);
+}
+
+function renderAmortTable(sched, showExtra) {
+  const thead = $("amortThead"), body = $("amortBody");
+  const fmt = d => d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  const cols = ["Period", "Principal", "Interest"].concat(showExtra ? ["Extra"] : []).concat(["Balance"]);
+  thead.innerHTML = `<tr>${cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr>`;
+
+  const row = (period, principal, interest, extra, balance) =>
+    `<tr><td>${period}</td><td class="val">${money(principal)}</td><td class="val">${money(interest)}</td>`
+    + (showExtra ? `<td class="val">${money(extra)}</td>` : "")
+    + `<td class="val">${money(balance)}</td></tr>`;
+
+  let rowsHtml;
+  if (state.amortView === "year") {
+    const years = [];
+    for (let i = 0; i < sched.rows.length; i += 12) years.push(sched.rows.slice(i, i + 12));
+    rowsHtml = years.map(yr => {
+      const sum = k => yr.reduce((s, x) => s + x[k], 0);
+      const period = yr.length > 1 ? `${fmt(yr[0].date)} – ${fmt(yr[yr.length - 1].date)}` : fmt(yr[0].date);
+      return row(period, sum("principal"), sum("interest"), sum("extra"), yr[yr.length - 1].balance);
+    }).join("");
+  } else {
+    rowsHtml = sched.rows.map(x => row(fmt(x.date), x.principal, x.interest, x.extra, x.balance)).join("");
+  }
+
+  const sum = k => sched.rows.reduce((s, x) => s + x[k], 0);
+  body.innerHTML = rowsHtml + row("Total", sum("principal"), sum("interest"), sum("extra"), 0)
+    .replace("<tr>", `<tr class="total">`);
 }
 
 function renderCheck(inp, r) {
@@ -756,9 +892,11 @@ wireSeg("segIncomeUnit", v => {
 });
 wireUnitToggle("segTaxUnit", "taxRate", "taxUnit");
 wireUnitToggle("segInsUnit", "insRate", "insUnit");
+wireSeg("segAmortView", v => { state.amortView = v; });
 
 const FIELDS = ["income","otherIncome","autoDebt","studentDebt","cardDebt","otherDebt",
-                "down","closingPct","rate","termYears","taxRate","insRate","pmiRate","hoa","checkPrice"];
+                "down","closingPct","rate","termYears","taxRate","insRate","pmiRate","hoa","checkPrice",
+                "amortStart","extraPrincipal"];
 function save() {
   try {
     const data = { state, fields: Object.fromEntries(FIELDS.map(f => [f, $(f).value])) };
@@ -773,11 +911,12 @@ function load() {
     for (const f of FIELDS) if (data.fields[f] !== undefined) $(f).value = data.fields[f];
     setSeg("segType", state.type); setSeg("segBand", state.band);
     setSeg("segTaxUnit", state.taxUnit); setSeg("segInsUnit", state.insUnit);
-    setSeg("segIncomeUnit", state.incomeUnit);
+    setSeg("segIncomeUnit", state.incomeUnit); setSeg("segAmortView", state.amortView);
     $("pmiRate").disabled = state.type !== "conv";
   } catch (e) { /* ignore corrupt state */ }
 }
 
+$("amortStart").value = toDateInputValue(defaultStartDate());
 FIELDS.forEach(f => $(f).addEventListener("input", render));
 $("form").addEventListener("submit", e => e.preventDefault());
 load();
