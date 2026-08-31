@@ -40,7 +40,9 @@ next visit to that browser/device; nothing is sent anywhere.
 Assumptions (current mortgage rates, conforming loan limits, standard
 qualifying ratios, etc.) are documented at the bottom of the calculator
 itself and are editable — it's a planning tool, not lending advice.
+
 ---
+
 ---
 ## [Lunch Wheel](.\LunchWheel\index.html)
 A fun wheel of fortune style wheel to decide what to have for lunch.  
