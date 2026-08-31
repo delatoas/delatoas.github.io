@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunch Wheel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="app">
+        <header class="app__header">
+            <h1>Lunch Wheel</h1>
+            <p class="subtitle">Spin to decide what's for lunch.</p>
+        </header>
+
+        <div class="top-grid">
+            <section class="location" aria-label="Your location">
+                <label class="location__label" for="location-input">Your location</label>
+                <input
+                    type="text"
+                    id="location-input"
+                    class="location__input"
+                    placeholder="123 Main St, City, ST"
+                    autocomplete="street-address"
+                    spellcheck="false">
+                <p class="location__hint">Used to open Google Maps with a pre-filled search after each spin.</p>
+            </section>
+
+            <section class="wheel-area" aria-label="Wheel">
+                <div class="pointer" aria-hidden="true"></div>
+                <svg class="wheel" id="wheel" viewBox="-110 -110 220 220" role="img" aria-label="Lunch wheel"></svg>
+                <button class="spin-btn" id="spin-btn" type="button">Spin</button>
+            </section>
+        </div>
+
+        <section class="result" id="result" aria-live="polite" hidden>
+            <span class="result__label">Today's pick</span>
+            <span class="result__value" id="result-value"></span>
+            <a
+                class="cta-btn"
+                id="cta-btn"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                hidden></a>
+            <p class="cta-hint" id="cta-hint" hidden>Add a location to find places nearby.</p>
+        </section>
+
+        <section class="history">
+            <div class="history__header">
+                <h2>Recent picks</h2>
+                <button class="link-btn" id="clear-history" type="button">Clear</button>
+            </div>
+            <ul class="history__list" id="history-list" aria-live="polite"></ul>
+        </section>
+
+        <section class="editor">
+            <details>
+                <summary>Manage cuisines</summary>
+                <div class="editor__body">
+                    <p class="editor__hint">Type in the empty row to add a cuisine &mdash; a new row will appear automatically. Press <kbd>Enter</kbd> to jump to the next row. Changes save automatically.</p>
+                    <ul class="items" id="items-list"></ul>
+                    <div class="editor__footer">
+                        <span class="count" id="count"></span>
+                        <button class="link-btn" id="reset-btn" type="button">Reset to defaults</button>
+                    </div>
+                </div>
+            </details>
+        </section>
+
+        <footer class="app__footer">
+            <span>Lunch Wheel &middot; local side project</span>
+        </footer>
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>
