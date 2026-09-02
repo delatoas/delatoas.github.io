@@ -242,7 +242,7 @@
   <header class="app">
     <div class="titlerow">
       <h1>The Home Ownership Reality Check</h1>
-      <span class="ver">v1.8 · updated Sep 1, 2026</span>
+      <span class="ver">v1.9 · updated Sep 2, 2026</span>
     </div>
     <p>The full picture — what a lender would qualify you for, what it costs every month, and the cash you'd need at closing. Every assumption below is editable.</p>
   </header>
@@ -276,7 +276,16 @@
       <fieldset>
         <legend>Cash</legend>
         <div class="field"><label for="down">Down payment</label><input id="down" inputmode="decimal" value="60,000"><span class="unit">$</span></div>
-        <div class="field"><label for="closingPct">Closing costs</label><input id="closingPct" inputmode="decimal" value="3"><span class="unit">% of price</span></div>
+        <div class="field">
+          <label for="closingPct">Closing costs</label>
+          <div class="inputgroup">
+            <input id="closingPct" inputmode="decimal" value="3">
+            <div class="seg-mini" role="group" aria-label="Closing cost unit" id="segClosingUnit">
+              <button type="button" data-v="pct" aria-pressed="true">%</button>
+              <button type="button" data-v="amt" aria-pressed="false">$</button>
+            </div>
+          </div>
+        </div>
       </fieldset>
 
       <fieldset>
@@ -442,12 +451,14 @@
         <ul>
           <li>Default rate 6.7% — Freddie Mac's 30-year average was 6.66% the week of July 30, 2026. The same rate is used for all three loan types for comparability, though FHA/VA often clear a bit lower in practice since they're government-backed.</li>
           <li>Property tax 1.1%/yr and insurance 0.55%/yr of home value are national-average defaults — set your county's real numbers. Both can also be entered as a flat $/yr amount if you know your actual bill. The amortization schedule holds P&amp;I only; it doesn't project tax, insurance, or HOA growth over the loan's life.</li>
+          <li>Closing costs default to 3% of price — a common ballpark — and can also be entered as a flat dollar amount if you have a real estimate.</li>
           <li>Qualifying ratios: conventional 28/36 (lender max 36/45), FHA 31/43 (lender max 40/50), VA back-end 41 (max 50). FHA adds 1.75% upfront MIP (financed) plus 0.55%/yr MIP, cancelling after 11 years with 10%+ down or lasting the life of the loan otherwise. VA adds a financed funding fee tiered by down payment (1.25% at 10%+, 1.5% at 5–9.99%, 2.15%/3.3% under 5% for first use/reuse) and waived with a VA disability rating; no monthly MI.</li>
           <li>Minimum down payment enforced: 3% conventional, 3.5% FHA, 0% VA — rising to 10% for conventional loans priced as jumbo.</li>
           <li>2026 conforming loan limit: $832,750 baseline ($1,249,125 ceiling in high-cost counties). Above it, conventional loans are priced as jumbo: rate + 0.25 points and 10%+ down — a representative market spread, not a specific lender's rate sheet. FHA county limits vary — floor ≈ $541,300; VA has no limit with full entitlement, so it's never treated as jumbo here.</li>
         </ul>
         <h3 style="margin-top:16px">Version history</h3>
         <ul>
+          <li><b>v1.9</b> — Sep 2, 2026 — closing costs can also be entered as a flat dollar amount instead of a percent of price.</li>
           <li><b>v1.8</b> — Sep 1, 2026 — jumbo conventional pricing (rate premium + 10% min down); FHA MIP 11-year cancellation at 10%+ down; VA funding fee now tiers by down payment, with first-use/reuse and disability-exemption controls; assumptions footer notes the same-rate and tax/insurance-escalation simplifications.</li>
           <li><b>v1.7</b> — Sep 1, 2026 — amortization schedule now tracks PMI: a drop-off date and total/saved PMI tiles, plus a PMI column in the table, for loans that need it.</li>
           <li><b>v1.6</b> — Aug 31, 2026 — amortization schedule for the max-affordable loan, with a configurable start date, extra monthly principal, and yearly/monthly views.</li>
@@ -513,7 +524,7 @@ const TYPE_NOTES = {
   va:   "For veterans & service members: $0 down, no monthly mortgage insurance — just a financed funding fee that tiers down with more down payment, is higher on reuse, and is waived with a VA disability rating.",
 };
 
-const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct", incomeUnit: "yr", amortView: "year", vaUse: "first", vaExempt: false };
+const state = { type: "conv", band: "std", taxUnit: "pct", insUnit: "pct", incomeUnit: "yr", closingUnit: "pct", amortView: "year", vaUse: "first", vaExempt: false };
 let lastPrice = 0; /* last solved max price — conversion basis when toggling tax/insurance units */
 
 /* ---------- helpers ---------- */
@@ -546,6 +557,10 @@ function taxMonthly(inp, price) {
 }
 function insMonthly(inp, price) {
   return inp.insUnit === "amt" ? inp.insRate / 12 : price * inp.insRate / 100 / 12;
+}
+/* Closing costs as a dollar figure — a one-time amount, not monthly like tax/insurance. */
+function closingAmount(inp, price) {
+  return inp.closingUnit === "amt" ? inp.closingPct : price * inp.closingPct / 100;
 }
 
 /* VA funding-fee percent for the <5%-down tier — the only tier that differs by first
@@ -750,7 +765,7 @@ function readInputs() {
   return {
     gmi: (state.incomeUnit === "yr" ? num("income") / 12 : num("income")) + num("otherIncome"),
     debts: num("autoDebt") + num("studentDebt") + num("cardDebt") + num("otherDebt"),
-    down: num("down"), closingPct: num("closingPct"),
+    down: num("down"), closingPct: num("closingPct"), closingUnit: state.closingUnit,
     rate: num("rate"), term: termYears(), type: state.type,
     taxRate: num("taxRate"), taxUnit: state.taxUnit,
     insRate: num("insRate"), insUnit: state.insUnit,
@@ -816,9 +831,11 @@ function render() {
   $("tLoanSub").textContent = r.loan > 0 && r.feeK > 1
     ? `incl. ${pct(r.feeK - 1).replace("%", "%")} financed fee` : `${inp.term}-yr at ${r.rate}%`;
   $("tPay").textContent = r.total > 0 ? money(r.total) + "/mo" : "—";
-  const cash = inp.down + r.price * inp.closingPct / 100;
+  const closing = closingAmount(inp, r.price);
+  const cash = inp.down + closing;
   $("tCash").textContent = r.price > 0 ? money(cash) : "—";
-  $("tCashSub").textContent = r.price > 0 ? `${money(inp.down)} down + ${inp.closingPct}% closing` : "";
+  $("tCashSub").textContent = r.price > 0
+    ? `${money(inp.down)} down + ${inp.closingUnit === "amt" ? money(closing) : inp.closingPct + "%"} closing` : "";
   if (inp.gmi > 0 && r.total > 0) {
     const backDti = (r.total + inp.debts) / inp.gmi;
     $("tDti").textContent = pct(backDti);
@@ -1111,6 +1128,7 @@ wireSeg("segIncomeUnit", v => {
 });
 wireUnitToggle("segTaxUnit", "taxRate", "taxUnit");
 wireUnitToggle("segInsUnit", "insRate", "insUnit");
+wireUnitToggle("segClosingUnit", "closingPct", "closingUnit");
 wireSeg("segAmortView", v => { state.amortView = v; });
 
 const FIELDS = ["income","otherIncome","autoDebt","studentDebt","cardDebt","otherDebt",
@@ -1130,6 +1148,7 @@ function load() {
     for (const f of FIELDS) if (data.fields[f] !== undefined) $(f).value = data.fields[f];
     setSeg("segType", state.type); setSeg("segBand", state.band);
     setSeg("segTaxUnit", state.taxUnit); setSeg("segInsUnit", state.insUnit);
+    setSeg("segClosingUnit", state.closingUnit);
     setSeg("segIncomeUnit", state.incomeUnit); setSeg("segAmortView", state.amortView);
     setSeg("segVaUse", state.vaUse);
     $("pmiRate").disabled = state.type !== "conv";
