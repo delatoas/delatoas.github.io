@@ -242,7 +242,7 @@
   <header class="app">
     <div class="titlerow">
       <h1>The Home Ownership Reality Check</h1>
-      <span class="ver">v1.9 · updated Sep 2, 2026</span>
+      <span class="ver">v1.10 · updated Sep 4, 2026</span>
     </div>
     <p>The full picture — what a lender would qualify you for, what it costs every month, and the cash you'd need at closing. Every assumption below is editable.</p>
   </header>
@@ -412,7 +412,7 @@
             <tbody>
               <tr><th scope="row">Who's eligible</th><td>Anyone who qualifies on credit and income</td><td>Anyone — friendlier to lower credit scores</td><td>Veterans, service members &amp; eligible surviving spouses</td></tr>
               <tr><th scope="row">Minimum down</th><td>3%</td><td>3.5%</td><td>$0</td></tr>
-              <tr><th scope="row">Mortgage insurance</th><td>PMI only under 20% down — cancels at 80% LTV</td><td>MIP 0.55%/yr — cancels after 11 yrs at 10%+ down, else life of loan</td><td>None</td></tr>
+              <tr><th scope="row">Mortgage insurance</th><td>PMI only under 20% down — requestable at 80% LTV, automatic at 78%</td><td>MIP 0.55%/yr — cancels after 11 yrs at 10%+ down, else life of loan</td><td>None</td></tr>
               <tr><th scope="row">Upfront fee</th><td>None (jumbo above the conforming limit adds a rate premium instead)</td><td>1.75% MIP, usually financed into the loan</td><td>Funding fee 1.25%–3.3% by down payment &amp; first-use/reuse, financed — waived with a VA disability rating</td></tr>
               <tr><th scope="row">Standard ratios</th><td>28 / 36</td><td>31 / 43</td><td>41 back-end + residual income test</td></tr>
               <tr><th scope="row">2026 loan limit</th><td>$832,750 conforming baseline — above it, priced as jumbo</td><td>By county — floor ≈ $541,300</td><td>No limit with full entitlement</td></tr>
@@ -454,10 +454,12 @@
           <li>Closing costs default to 3% of price — a common ballpark — and can also be entered as a flat dollar amount if you have a real estimate.</li>
           <li>Qualifying ratios: conventional 28/36 (lender max 36/45), FHA 31/43 (lender max 40/50), VA back-end 41 (max 50). FHA adds 1.75% upfront MIP (financed) plus 0.55%/yr MIP, cancelling after 11 years with 10%+ down or lasting the life of the loan otherwise. VA adds a financed funding fee tiered by down payment (1.25% at 10%+, 1.5% at 5–9.99%, 2.15%/3.3% under 5% for first use/reuse) and waived with a VA disability rating; no monthly MI.</li>
           <li>Minimum down payment enforced: 3% conventional, 3.5% FHA, 0% VA — rising to 10% for conventional loans priced as jumbo.</li>
+          <li>Mortgage-insurance termination follows the Homeowners Protection Act for conventional PMI, which gives two different dates. Cancellation may be <i>requested</i> once the balance reaches 80% of original value — but you have to ask, and the servicer can require evidence the home has not declined in value, so a falling market can get it refused. Termination at 78% is <i>automatic</i> and has no value test, but it is pegged to the original amortization schedule, so extra principal pulls in the 80% date without moving it; final termination at the midpoint of the term backstops both. "Original value" is the lesser of price and appraisal at closing and is never re-marked, so a decline can only cost you the months in between — it can't push the guaranteed date out. The schedule shows both dates and the resulting cost range. Cancellation based on <i>appreciation</i> (GSE seasoning rules), lender-paid PMI, and the high-risk-loan carve-out are not modelled. FHA MIP follows none of this: 11 years at 90% LTV or below, life of the loan above it.</li>
           <li>2026 conforming loan limit: $832,750 baseline ($1,249,125 ceiling in high-cost counties). Above it, conventional loans are priced as jumbo: rate + 0.25 points and 10%+ down — a representative market spread, not a specific lender's rate sheet. FHA county limits vary — floor ≈ $541,300; VA has no limit with full entitlement, so it's never treated as jumbo here.</li>
         </ul>
         <h3 style="margin-top:16px">Version history</h3>
         <ul>
+          <li><b>v1.10</b> — Sep 4, 2026 — conventional PMI now shows both termination dates (requestable at 80%, guaranteed at 78% on the original schedule) with the cost range between them, so extra principal no longer implies a drop-off date it can't actually guarantee. Fixes: a conventional loan just over the conforming limit no longer gets jumbo pricing when stopping at the limit buys more house (max price could previously fall as income rose); VA no longer blames non-existent debts for the binding ratio; the "20%+ down" chip no longer disappears above 35% down; the PMI field label survives a reload; financed-fee percents show 1.75%/2.15% rather than rounding to 1.8%/2.2%; unit toggles no longer reinterpret a figure when there's no price to convert against; income $/yr↔$/mo round-trips without drifting.</li>
           <li><b>v1.9</b> — Sep 2, 2026 — closing costs can also be entered as a flat dollar amount instead of a percent of price.</li>
           <li><b>v1.8</b> — Sep 1, 2026 — jumbo conventional pricing (rate premium + 10% min down); FHA MIP 11-year cancellation at 10%+ down; VA funding fee now tiers by down payment, with first-use/reuse and disability-exemption controls; assumptions footer notes the same-rate and tax/insurance-escalation simplifications.</li>
           <li><b>v1.7</b> — Sep 1, 2026 — amortization schedule now tracks PMI: a drop-off date and total/saved PMI tiles, plus a PMI column in the table, for loans that need it.</li>
@@ -499,6 +501,11 @@ const PROGRAMS = {
           bands: { cons: [null, 0.36], std: [null, 0.41], max: [null, 0.50] } },
 };
 const BAND_NAMES = { cons: "Conservative", std: "Standard", max: "Lender max" };
+const PMI_LABELS = {
+  conv: "PMI (if under 20% down)",
+  fha:  "PMI — FHA MIP applied instead",
+  va:   "PMI — none on VA loans",
+};
 const BAND_NOTES = {
   cons: "Well under lender limits — room for savings, childcare, the unexpected.",
   std:  "The classic qualifying ratios most lenders underwrite to.",
@@ -513,13 +520,19 @@ const JUMBO_MIN_DOWN = 0.10;       // minimum down payment enforced above CONFOR
 /* FHA MIP cancellation: 11 years (132 months) if the original down payment was >=10%,
    otherwise it runs for the life of the loan. */
 const FHA_MIP_CANCEL_MONTHS = 132;
+/* Conventional PMI: cancellation may be REQUESTED at 80% of original value (the servicer
+   can require evidence the home hasn't lost value, so a soft market can get it refused);
+   termination at 78% is AUTOMATIC and has no value test. Original value is fixed at
+   closing, so a decline can never push the automatic date out — only cost the months in
+   between. See miPlanFor(). */
+const PMI_AUTO_LTV = 0.78;
 const FHA_MIP_CANCEL_MIN_DOWN = 0.10;
 /* VA funding fee tiers by down payment (same for first use & reuse at 5%+ down; the
    under-5%-down tier is the one that differs by use). */
 const VA_FEE_10PLUS = 1.0125, VA_FEE_5TO10 = 1.015;
 const VA_FEE_UNDER5 = { first: 1.0215, reuse: 1.033 };
 const TYPE_NOTES = {
-  conv: "The default choice: 3% minimum down, PMI only under 20% down (cancels at 80% LTV), cheapest long-run with strong credit. Above the conforming limit it's priced as jumbo — a higher rate and 10%+ down.",
+  conv: "The default choice: 3% minimum down, PMI only under 20% down (requestable at 80% LTV, automatic at 78%), cheapest long-run with strong credit. Above the conforming limit it's priced as jumbo — a higher rate and 10%+ down.",
   fha:  "Easier to qualify: 3.5% down and looser credit — but a 1.75% upfront fee plus 0.55%/yr MIP that cancels after 11 years with 10%+ down, otherwise runs for the life of the loan.",
   va:   "For veterans & service members: $0 down, no monthly mortgage insurance — just a financed funding fee that tiers down with more down payment, is higher on reuse, and is waived with a VA disability rating.",
 };
@@ -535,6 +548,9 @@ const num = id => {
 const money  = v => "$" + Math.round(v).toLocaleString("en-US");
 const moneyK = v => v >= 10000 ? "$" + Math.round(v / 1000).toLocaleString("en-US") + "k" : money(v);
 const pct    = v => (v * 100).toFixed(1) + "%";
+/* Financed-fee percents need 2 decimals — 1.75% and 2.15% both round to the wrong
+   number at 1 decimal and then contradict the comparison table below. */
+const pct2   = v => (v * 100).toFixed(2).replace(/\.?0+$/, "") + "%";
 
 function paymentFactor(rate, years) {
   const n = years * 12, r = rate / 100 / 12;
@@ -605,7 +621,7 @@ function vaFeeKAt(price, inp) {
 
 /* Core solve at a specific rate/min-down — factored out so a jumbo conventional loan
    can be re-solved once at jumbo terms (see affordability()). */
-function solveAtRate(inp, bandKey, rate, minDownOverride) {
+function solveAtRate(inp, bandKey, rate, minDownOverride, loanCap) {
   const prog = PROGRAMS[inp.type];
   const [front, back] = prog.bands[bandKey];
   const frontCap = front === null ? Infinity : front * inp.gmi;
@@ -644,6 +660,13 @@ function solveAtRate(inp, bandKey, rate, minDownOverride) {
     const cap = inp.down / minDown;
     if (price > cap) { price = cap; capped = true; }
   }
+  /* Optional hard ceiling on the loan itself — used to stop exactly at the conforming
+     limit rather than cross into jumbo pricing. See affordability(). */
+  let atLoanCap = false;
+  if (loanCap > 0) {
+    const pCap = loanCap / feeK + inp.down;
+    if (price > pCap) { price = pCap; atLoanCap = true; }
+  }
   if (!Number.isFinite(price) || price < 0) price = 0;
 
   /* actual payment at the final price */
@@ -660,7 +683,7 @@ function solveAtRate(inp, bandKey, rate, minDownOverride) {
     hoa: price > 0 ? inp.hoa : 0,
   };
   const total = parts.pi + parts.tax + parts.ins + parts.mi + parts.hoa;
-  return { price, loan, parts, total, maxPay, frontCap, backCap, capped,
+  return { price, loan, parts, total, maxPay, frontCap, backCap, capped, atLoanCap,
            front, back, f, prog, feeK, rate, minDown };
 }
 
@@ -671,8 +694,15 @@ function affordability(inp, bandKey) {
   let r = solveAtRate(inp, bandKey, inp.rate);
   let jumbo = false;
   if (inp.type === "conv" && r.loan > CONFORMING_LIMIT) {
-    jumbo = true;
-    r = solveAtRate(inp, bandKey, inp.rate + JUMBO_RATE_PREMIUM, Math.max(prog.minDown, JUMBO_MIN_DOWN));
+    /* Jumbo terms buy less house, so the re-solve can land back UNDER the limit — which
+       would price a conforming-size loan as jumbo and make max price FALL as income
+       rises. Same boundary trick as the PMI 80%-LTV case above: compare "stop exactly
+       at the line" against "accept the worse pricing" and keep whichever buys more. */
+    const rJumbo = solveAtRate(inp, bandKey, inp.rate + JUMBO_RATE_PREMIUM,
+                               Math.max(prog.minDown, JUMBO_MIN_DOWN));
+    const rConf  = solveAtRate(inp, bandKey, inp.rate, prog.minDown, CONFORMING_LIMIT);
+    if (rJumbo.price > rConf.price) { r = rJumbo; jumbo = true; }
+    else                            { r = rConf; }
   }
   return { ...r, jumbo };
 }
@@ -726,8 +756,14 @@ function readStartDate() {
      - `miDropMonths` > 0: time-based (FHA MIP, 10%+ down) — cancels at that month
        regardless of balance.
      - neither set: MI (if any) runs for the life of the loan (FHA MIP, <10% down).
-   Omit all three when no MI applies — FHA/VA/conv calls without it are unaffected. */
-function buildSchedule(loan, rate, term, extra, startDate, miMonthly = 0, miDropPrice = 0, miDropMonths = 0) {
+   Omit all three when no MI applies — FHA/VA/conv calls without it are unaffected.
+
+   `miAutoMonths` (conventional PMI only) is the month automatic termination is
+   guaranteed by. The 80% cancellation above has to be REQUESTED and the servicer may
+   require evidence the home hasn't lost value, so it is the earliest date, not a
+   certain one; automatic termination can't be refused. It is reported alongside rather
+   than replacing miDropDate, and drives `totalMiMax` — the cost if the request fails. */
+function buildSchedule(loan, rate, term, extra, startDate, miMonthly = 0, miDropPrice = 0, miDropMonths = 0, miAutoMonths = 0) {
   const payment = loan * paymentFactor(rate, term);
   const r = rate / 100 / 12;
   const miThreshold = miDropPrice * 0.80;
@@ -758,7 +794,17 @@ function buildSchedule(loan, rate, term, extra, startDate, miMonthly = 0, miDrop
   /* a payoff-month payment can jump the balance straight past the LTV line — don't
      report a drop-off date later than the loan itself is already gone */
   if (miDropDate && payoffDate && miDropDate > payoffDate) miDropDate = payoffDate;
-  return { rows, payment, totalInterest: cumInterest, totalMi: cumMi, payoffDate, miDropDate };
+  /* MI is a flat monthly charge, so the worst case is just "charged through the
+     guaranteed month" — no second pass needed. Capped at the payoff for the same reason. */
+  let miAutoDate = null, totalMiMax = cumMi;
+  if (miAutoMonths > 0 && miMonthly > 0) {
+    const m = Math.min(miAutoMonths, rows.length);
+    totalMiMax = Math.max(cumMi, miMonthly * m);
+    miAutoDate = new Date(startDate.getFullYear(), startDate.getMonth() + m, 1);
+    if (payoffDate && miAutoDate > payoffDate) miAutoDate = payoffDate;
+  }
+  return { rows, payment, totalInterest: cumInterest, totalMi: cumMi, totalMiMax,
+           payoffDate, miDropDate, miAutoDate };
 }
 
 function readInputs() {
@@ -789,6 +835,7 @@ function render() {
 
   setSeg("segTerm", String(inp.term));
   $("bandNote").textContent = BAND_NOTES[state.band];
+  $("pmiLabel").textContent = PMI_LABELS[state.type];   /* set here so a reload restores it too */
   $("typeNote").textContent = TYPE_NOTES[state.type];
   $("compare").className = "compare sel-" + state.type;
   $("maxPrice").textContent = inp.gmi > 0 ? money(r.price) : "—";
@@ -804,11 +851,18 @@ function render() {
     bind = r.jumbo
       ? `Limited by your down payment: above the ${moneyK(CONFORMING_LIMIT)} conforming limit, jumbo terms need at least ${minPct}% down, so ${money(inp.down)} caps the price at ${money(r.price)}.`
       : `Limited by your down payment: ${r.prog.name} needs at least ${minPct}% down, so ${money(inp.down)} caps the price at ${money(r.price)}.`;
-  } else if (r.backCap < r.frontCap) {
+  } else if (r.atLoanCap) {
+    bind = `Limited by the ${moneyK(CONFORMING_LIMIT)} conforming loan limit — borrowing more means jumbo pricing (rate+${JUMBO_RATE_PREMIUM}%, ${(JUMBO_MIN_DOWN * 100).toLocaleString()}%+ down), which on your numbers would buy less house, not more.`;
+  } else if (inp.debts > 0 && r.backCap < r.frontCap) {
     const noDebtPay = r.back * inp.gmi;
     bind = `Your existing debts are the limiting factor — they hold your housing budget to ${money(r.maxPay)}/mo instead of ${money(Math.min(r.frontCap, noDebtPay))}/mo. Paying them off buys more house.`;
   } else {
-    bind = `Limited by the ${state.band === "std" ? "standard" : BAND_NAMES[state.band].toLowerCase()} housing ratio: ${Math.round((r.front ?? r.back) * 100)}% of gross income caps the payment at ${money(r.maxPay)}/mo.`;
+    /* VA has no front-end ratio, so the binding number there is the back-end
+       (total-debt) ratio — calling it a "housing ratio" would be wrong. */
+    const backOnly = r.front === null;
+    bind = `Limited by the ${state.band === "std" ? "standard" : BAND_NAMES[state.band].toLowerCase()} `
+      + `${backOnly ? "debt-to-income" : "housing"} ratio: ${Math.round((r.front ?? r.back) * 100)}% of gross income `
+      + `caps ${backOnly ? "total debt payments" : "the payment"} at ${money(r.maxPay)}/mo.`;
   }
   $("binding").innerHTML = bind.replace(/\$[\d,]+(?:\/mo)?|\d+(?:\.\d+)?%/g, m => `<strong>${m}</strong>`);
 
@@ -820,7 +874,7 @@ function render() {
     chips.push(`<span class="chip">ℹ Under 20% down — PMI of ${money(r.parts.mi)}/mo included until 80% LTV</span>`);
   if (inp.type === "conv" && inp.down <= 0 && inp.gmi > 0)
     chips.push(`<span class="chip crit">✕ Conventional loans need at least 3% down</span>`);
-  if (inp.type === "conv" && r.price > 0 && (r.price - inp.down) / r.price <= 0.80 && inp.down / r.price < 0.35)
+  if (inp.type === "conv" && r.price > 0 && inp.down > 0 && (r.price - inp.down) / r.price <= 0.80)
     chips.push(`<span class="chip good">✓ 20%+ down — no PMI</span>`);
   if (inp.type === "fha" && r.loan > 541300)
     chips.push(`<span class="chip warn">⚠ Above the FHA floor limit — check your county's FHA limit</span>`);
@@ -829,7 +883,7 @@ function render() {
   /* tiles */
   $("tLoan").textContent = r.loan > 0 ? money(r.loan) : "—";
   $("tLoanSub").textContent = r.loan > 0 && r.feeK > 1
-    ? `incl. ${pct(r.feeK - 1).replace("%", "%")} financed fee` : `${inp.term}-yr at ${r.rate}%`;
+    ? `incl. ${pct2(r.feeK - 1)} financed fee` : `${inp.term}-yr at ${r.rate}%`;
   $("tPay").textContent = r.total > 0 ? money(r.total) + "/mo" : "—";
   const closing = closingAmount(inp, r.price);
   const cash = inp.down + closing;
@@ -885,26 +939,50 @@ function render() {
 
   renderCheck(inp, r);
   renderAmort(inp, r);
-  lastPrice = r.price;
+  /* Only remember a price the user was actually shown — with no income the solve still
+     returns a down-payment-driven figure that the hero renders as "—", and converting
+     tax/insurance units against that phantom basis would silently rewrite their input. */
+  lastPrice = inp.gmi > 0 ? r.price : 0;
   save();
+}
+
+/* Month (1-based) at which the ORIGINAL schedule — no prepayments — first brings the
+   balance to `target`, or null if it never does. Automatic PMI termination is pegged to
+   the original amortization schedule by statute, so extra principal must NOT be allowed
+   to move it; that is why this walks its own clean schedule instead of reading the
+   balances in the (possibly prepaid) rows. */
+function scheduledMonthAtBalance(loan, rate, term, target) {
+  const r = rate / 100 / 12, payment = loan * paymentFactor(rate, term), n = Math.round(term * 12);
+  let balance = loan;
+  for (let m = 1; m <= n; m++) {
+    balance -= Math.max(0, payment - balance * r);
+    if (balance <= target) return m;
+  }
+  return null;
 }
 
 /* Mortgage-insurance cancellation plan for a given price/MI-amount under the current
    loan-type rules — shared by the main (max-affordable) and "check a listing" schedules
    so both always follow the exact same PMI/MIP logic. See buildSchedule() for how
    miDropPrice (LTV-based) vs. miDropMonths (time-based) are applied. */
-function miPlanFor(inp, price, miMonthly) {
+function miPlanFor(inp, price, miMonthly, loan, rate, term) {
   const hasMi = miMonthly > 0;
   const miLabel = inp.type === "fha" ? "MIP" : "PMI";
-  let miDropPrice = 0, miDropMonths = 0, miLifeOfLoan = false;
+  let miDropPrice = 0, miDropMonths = 0, miAutoMonths = 0, miLifeOfLoan = false;
   if (hasMi && inp.type === "conv") {
-    miDropPrice = price;
+    miDropPrice = price;                                     // requestable at 80%
+    /* Guaranteed automatic termination: 78% on the original schedule, backstopped by
+       final termination at the midpoint of the term. */
+    const midpoint = Math.ceil(Math.round(term * 12) / 2);
+    const at78 = scheduledMonthAtBalance(loan, rate, term, price * PMI_AUTO_LTV);
+    miAutoMonths = Math.min(at78 ?? midpoint, midpoint);
   } else if (hasMi && inp.type === "fha") {
     const downPct = price > 0 ? inp.down / price : 0;
     if (downPct >= FHA_MIP_CANCEL_MIN_DOWN) miDropMonths = FHA_MIP_CANCEL_MONTHS;
     else miLifeOfLoan = true;
   }
-  return { hasMi, miMonthly: hasMi ? miMonthly : 0, miLabel, miDropPrice, miDropMonths, miLifeOfLoan };
+  return { hasMi, miMonthly: hasMi ? miMonthly : 0, miLabel,
+           miDropPrice, miDropMonths, miAutoMonths, miLifeOfLoan };
 }
 
 /* Render one amortization schedule (tiles + table) into a given set of elements. Shared
@@ -913,7 +991,9 @@ function miPlanFor(inp, price, miMonthly) {
 function renderAmortInto(els, loan, rate, term, extra, startDate, miPlan, subText) {
   els.sub.textContent = subText;
 
-  const sched = buildSchedule(loan, rate, term, extra, startDate, miPlan.miMonthly, miPlan.miDropPrice, miPlan.miDropMonths);
+  const sched = buildSchedule(loan, rate, term, extra, startDate, miPlan.miMonthly,
+                              miPlan.miDropPrice, miPlan.miDropMonths, miPlan.miAutoMonths);
+  const fmtM = d => d ? d.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—";
   const t = [
     { k: "Monthly P&I", v: money(sched.payment), s: extra > 0 ? `+${money(extra)}/mo extra` : "scheduled payment" },
     { k: "Payoff date", v: sched.payoffDate ? sched.payoffDate.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—" },
@@ -922,18 +1002,31 @@ function renderAmortInto(els, loan, rate, term, extra, startDate, miPlan, subTex
   if (miPlan.hasMi) {
     if (miPlan.miLifeOfLoan) {
       t.push({ k: miPlan.miLabel, v: "life of loan", s: "under 10% down — never cancels" });
+    } else if (miPlan.miDropMonths > 0) {
+      t.push({ k: `${miPlan.miLabel} drops off`, v: fmtM(sched.miDropDate), s: "11 years in (10%+ down)" });
     } else {
-      const dropSub = miPlan.miDropMonths > 0 ? "11 years in (10%+ down)" : "balance hits 80% of price";
-      t.push({ k: `${miPlan.miLabel} drops off`, v: sched.miDropDate ? sched.miDropDate.toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—", s: dropSub });
+      /* Conventional PMI has two dates: the earliest you can ask, and the one that
+         can't be refused. Showing only the first would overstate the certainty. */
+      t.push({ k: `${miPlan.miLabel} — earliest`, v: fmtM(sched.miDropDate),
+               s: "at 80% — you must request it" });
+      if (sched.miAutoDate)
+        t.push({ k: `${miPlan.miLabel} — guaranteed`, v: fmtM(sched.miAutoDate),
+                 s: "automatic at 78% — no value test" });
     }
-    t.push({ k: `${miPlan.miLabel} paid`, v: money(sched.totalMi) });
+    const range = sched.totalMiMax > sched.totalMi + 1
+      ? `${money(sched.totalMi)} – ${money(sched.totalMiMax)}` : money(sched.totalMi);
+    t.push({ k: `${miPlan.miLabel} paid`, v: range,
+             s: sched.totalMiMax > sched.totalMi + 1 ? "range = the value-decline risk" : "" });
   }
   if (extra > 0) {
     const base = buildSchedule(loan, rate, term, 0, startDate, miPlan.miMonthly, miPlan.miDropPrice, miPlan.miDropMonths);
     const monthsSaved = base.rows.length - sched.rows.length;
     t.push({ k: "Interest saved", v: money(base.totalInterest - sched.totalInterest) });
     t.push({ k: "Payoff sooner", v: monthsSaved > 0 ? `${Math.floor(monthsSaved / 12)}y ${monthsSaved % 12}m` : "—" });
-    if (miPlan.hasMi) t.push({ k: `${miPlan.miLabel} saved`, v: money(base.totalMi - sched.totalMi) });
+    /* Prepayments pull in the 80% request but never the automatic date, so this saving
+       is only realised if the servicer grants cancellation. */
+    if (miPlan.hasMi) t.push({ k: `${miPlan.miLabel} saved`, v: money(base.totalMi - sched.totalMi),
+                               s: miPlan.miAutoMonths > 0 ? "if cancellation is granted" : "" });
   }
   els.tiles.innerHTML = t.map(x =>
     `<div class="tile"><div class="k">${x.k}</div><div class="v">${x.v}</div><div class="s">${x.s || ""}</div></div>`
@@ -957,7 +1050,7 @@ function renderAmort(inp, r) {
     + `(This tracks your max-affordable loan above — not the "check a specific listing" price.)`
     + (r.jumbo ? ` Jumbo terms apply: rate+${JUMBO_RATE_PREMIUM}% above the ${moneyK(CONFORMING_LIMIT)} conforming limit.` : "");
 
-  const miPlan = miPlanFor(inp, r.price, r.parts.mi);
+  const miPlan = miPlanFor(inp, r.price, r.parts.mi, r.loan, r.rate, inp.term);
   renderAmortInto({ sub, tiles, thead, body }, r.loan, r.rate, inp.term, extra, startDate, miPlan, subText);
 }
 
@@ -1042,7 +1135,7 @@ function renderCheck(inp, r) {
   amortWrap.hidden = false;
   const extra = num("extraPrincipal");
   const startDate = readStartDate();
-  const miPlan = miPlanFor(inp, price, p.mi);
+  const miPlan = miPlanFor(inp, price, p.mi, p.loan, p.rate, inp.term);
   const subText = `Amortizing a ${money(p.loan)} loan at ${p.rate}% for ${inp.term} years — same extra principal & start date as the schedule above.`
     + (p.jumbo ? ` Jumbo terms apply: rate+${JUMBO_RATE_PREMIUM}%.` : "");
   renderAmortInto({
@@ -1092,8 +1185,6 @@ function setVaFieldsEnabled(isVa) {
 wireSeg("segType", v => {
   state.type = v;
   $("pmiRate").disabled = v !== "conv";
-  $("pmiLabel").textContent = v === "conv" ? "PMI (if under 20% down)"
-    : v === "fha" ? "PMI — FHA MIP applied instead" : "PMI — none on VA loans";
   setVaFieldsEnabled(v === "va");
 });
 wireSeg("segTerm", v => { $("termYears").value = v; });
@@ -1106,25 +1197,34 @@ $("vaExempt").addEventListener("change", () => { state.vaExempt = $("vaExempt").
    reinterpret the figure (e.g. "1.1" becoming "$1.10/yr"). */
 function wireUnitToggle(segId, fieldId, stateKey) {
   wireSeg(segId, v => {
-    if (v !== state[stateKey]) {
-      const basis = num("checkPrice") || lastPrice;
-      const cur = num(fieldId);
-      if (basis > 0) {
-        $(fieldId).value = v === "amt"
-          ? Math.round(basis * cur / 100).toLocaleString("en-US")  // %  -> $/yr
-          : (cur / basis * 100).toFixed(2);                        // $/yr -> %
-      }
-      state[stateKey] = v;
-    }
+    if (v === state[stateKey]) return;
+    const basis = num("checkPrice") || lastPrice;
+    const cur = num(fieldId);
+    /* With no price to convert against, flipping the unit would silently reinterpret the
+       number (1.1 %/yr quietly becoming $1.10/yr) — exactly what this toggle exists to
+       prevent. Stay on the current unit instead and put the buttons back. */
+    if (basis <= 0) { setSeg(segId, state[stateKey]); return; }
+    $(fieldId).value = v === "amt"
+      ? Math.round(basis * cur / 100).toLocaleString("en-US")  // %  -> $/yr
+      : (cur / basis * 100).toFixed(2);                        // $/yr -> %
+    state[stateKey] = v;
   });
 }
 /* $/yr <-> $/mo toggle for income — a plain ×12/÷12 conversion, no price basis needed. */
 wireSeg("segIncomeUnit", v => {
-  if (v !== state.incomeUnit) {
-    const cur = num("income");
-    $("income").value = Math.round(v === "mo" ? cur / 12 : cur * 12).toLocaleString("en-US");
-    state.incomeUnit = v;
+  if (v === state.incomeUnit) return;
+  const cur = num("income");
+  if (v === "mo") {
+    state.incomeAnnual = cur;                       // remember the exact annual figure
+    $("income").value = Math.round(cur / 12).toLocaleString("en-US");
+  } else {
+    /* Restore the remembered annual figure when the monthly box wasn't edited, so
+       $/yr -> $/mo -> $/yr comes back to $100,000 rather than drifting to $99,996. */
+    const kept = state.incomeAnnual;
+    const annual = (kept != null && Math.round(kept / 12) === Math.round(cur)) ? kept : cur * 12;
+    $("income").value = Math.round(annual).toLocaleString("en-US");
   }
+  state.incomeUnit = v;
 });
 wireUnitToggle("segTaxUnit", "taxRate", "taxUnit");
 wireUnitToggle("segInsUnit", "insRate", "insUnit");
